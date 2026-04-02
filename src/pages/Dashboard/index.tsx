@@ -2,27 +2,25 @@ import { useState, useEffect } from 'react'
 import { vehiclesApi, reportsApi, parkingsApi } from '../../api'
 import { useAuthStore } from '../../store/auth'
 import { useSocket } from '../../hooks/useSocket'
-import { Parking, Vehicle } from '../../types'
+import { Parking, VehicleSession } from '../../types'
 import StatCard from '../../components/ui/StatCard'
 import CountryBadge from '../../components/ui/CountryBadge'
 import { formatMoney, formatTime } from '../../utils'
 
 export default function Dashboard() {
   const { user } = useAuthStore()
-  const [parking, setParking] = useState<Parking | null>(null)
-  const [insideVehicles, setInsideVehicles] = useState<Vehicle[]>([])
-  const [dailyIncome, setDailyIncome] = useState(0)
-  const [weeklyIncome, setWeeklyIncome] = useState(0)
-  const [monthlyIncome, setMonthlyIncome] = useState(0)
-  const [insideCount, setInsideCount] = useState(0)
+  const [parking, setParking]               = useState<Parking | null>(null)
+  const [activeSessions, setActiveSessions] = useState<VehicleSession[]>([])
+  const [dailyIncome, setDailyIncome]       = useState(0)
+  const [weeklyIncome, setWeeklyIncome]     = useState(0)
+  const [monthlyIncome, setMonthlyIncome]   = useState(0)
+  const [activeCount, setActiveCount]       = useState(0)
 
   const parkingId = user?.role === 'OPERATOR'
-    ? user.parkingId ?? ''
-    : parking?.id ?? ''
+    ? (user.parkingId ?? '')
+    : (parking?.id ?? '')
 
-  useEffect(() => {
-    loadData()
-  }, [])
+  useEffect(() => { loadData() }, [])
 
   const loadData = async () => {
     try {
@@ -35,7 +33,6 @@ export default function Dashboard() {
           await loadParkingData(res.data[0].id)
         }
       } else {
-        // SuperAdmin — birinchi parkingni ko'rsatamiz
         const res = await parkingsApi.getAll()
         if (res.data.length > 0) {
           setParking(res.data[0])
@@ -46,29 +43,29 @@ export default function Dashboard() {
   }
 
   const loadParkingData = async (pid: string) => {
-    const [inside, daily, weekly, monthly] = await Promise.all([
-      vehiclesApi.getInside(pid),
+    const [active, daily, weekly, monthly] = await Promise.all([
+      vehiclesApi.getActive(pid),
       reportsApi.getParkingSummary(pid, 'daily'),
       reportsApi.getParkingSummary(pid, 'weekly'),
       reportsApi.getParkingSummary(pid, 'monthly'),
     ])
-    setInsideVehicles(inside.data)
-    setInsideCount(inside.data.length)
+    setActiveSessions(active.data)
+    setActiveCount(active.data.length)
     setDailyIncome(daily.data.totalIncome)
     setWeeklyIncome(weekly.data.totalIncome)
     setMonthlyIncome(monthly.data.totalIncome)
   }
 
-  // Real-time
+  // Real-time Socket.io
   useSocket(parkingId || null, {
-    onEntry: (v) => {
-      setInsideVehicles((prev) => [v, ...prev])
-      setInsideCount((c) => c + 1)
+    onEntry: (s) => {
+      setActiveSessions((prev) => [s, ...prev])
+      setActiveCount((c) => c + 1)
     },
-    onExit: (v) => {
-      setInsideVehicles((prev) => prev.filter((x) => x.id !== v.id))
-      setInsideCount((c) => Math.max(0, c - 1))
-      if (v.amount) setDailyIncome((d) => d + v.amount!)
+    onExit: (s) => {
+      setActiveSessions((prev) => prev.filter((x) => x.id !== s.id))
+      setActiveCount((c) => Math.max(0, c - 1))
+      if (s.totalAmount) setDailyIncome((d) => d + s.totalAmount!)
     },
   })
 
@@ -81,10 +78,11 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 space-y-6">
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-800">
-          {greet()}, {user?.name?.split(' ')[0]}! 👋
+          {greet()}, {user?.fullName?.split(' ')[0]}! 👋
         </h1>
         <p className="text-sm text-slate-500 mt-0.5">
           {parking?.name ?? 'ParkFlow'} — real vaqt monitoringi
@@ -93,13 +91,13 @@ export default function Dashboard() {
 
       {/* Stat kartalar */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Hozir ichkarida" value={insideCount} icon="🚗" color="blue" live />
-        <StatCard title="Bugungi kirim"   value={formatMoney(dailyIncome)}   icon="💰" color="green" />
+        <StatCard title="Hozir ichkarida" value={activeCount}              icon="🚗" color="blue"   live />
+        <StatCard title="Bugungi kirim"   value={formatMoney(dailyIncome)}   icon="💰" color="green"  />
         <StatCard title="Haftalik kirim"  value={formatMoney(weeklyIncome)}  icon="📈" color="orange" />
         <StatCard title="Oylik kirim"     value={formatMoney(monthlyIncome)} icon="📅" color="purple" />
       </div>
 
-      {/* Jadval */}
+      {/* Live jadval */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-slate-800">Hozir parkingda</h2>
@@ -109,7 +107,7 @@ export default function Dashboard() {
           </span>
         </div>
 
-        {insideVehicles.length === 0 ? (
+        {activeSessions.length === 0 ? (
           <div className="text-center py-12 text-slate-400">
             <p className="text-4xl mb-2">🅿️</p>
             <p>Parking bo'sh</p>
@@ -127,19 +125,17 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {insideVehicles.map((v, i) => {
-                  const mins = Math.floor((Date.now() - new Date(v.entryTime).getTime()) / 60000)
-                  const h = Math.floor(mins / 60)
-                  const m = mins % 60
+                {activeSessions.map((s, i) => {
+                  const mins = Math.floor((Date.now() - new Date(s.entryTime).getTime()) / 60000)
+                  const h    = Math.floor(mins / 60)
+                  const m    = mins % 60
                   return (
-                    <tr key={v.id} className="hover:bg-slate-50 transition">
+                    <tr key={s.id} className="hover:bg-slate-50 transition">
                       <td className="py-3 text-slate-400">{i + 1}</td>
-                      <td className="py-3 font-mono font-bold text-slate-800">{v.plateNumber}</td>
-                      <td className="py-3"><CountryBadge country={v.country} /></td>
-                      <td className="py-3 text-slate-600">{formatTime(v.entryTime)}</td>
-                      <td className="py-3 text-slate-500">
-                        {h > 0 ? `${h}s ` : ''}{m}d
-                      </td>
+                      <td className="py-3 font-mono font-bold text-slate-800">{s.plateNumber}</td>
+                      <td className="py-3"><CountryBadge country={s.country} /></td>
+                      <td className="py-3 text-slate-600">{formatTime(s.entryTime)}</td>
+                      <td className="py-3 text-slate-500">{h > 0 ? `${h}s ` : ''}{m}d</td>
                     </tr>
                   )
                 })}

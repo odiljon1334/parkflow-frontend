@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
-import { Vehicle } from '../types'
+import { VehicleSession } from '../types'
+
+const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5001'
 
 interface SocketEvents {
-  onEntry?: (vehicle: Vehicle) => void
-  onExit?: (vehicle: Vehicle) => void
+  onEntry?: (session: VehicleSession) => void
+  onExit?:  (session: VehicleSession) => void
   onCount?: (data: { parkingId: string; count: number }) => void
 }
 
@@ -14,7 +16,7 @@ export function useSocket(parkingId: string | null, events: SocketEvents) {
   useEffect(() => {
     if (!parkingId) return
 
-    const socket = io(import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000')
+    const socket = io(SOCKET_URL, { transports: ['websocket'] })
     socketRef.current = socket
 
     socket.on('connect', () => {
@@ -22,11 +24,13 @@ export function useSocket(parkingId: string | null, events: SocketEvents) {
     })
 
     if (events.onEntry) socket.on('vehicle:entry', events.onEntry)
-    if (events.onExit)  socket.on('vehicle:exit', events.onExit)
-    if (events.onCount) socket.on('inside:count', events.onCount)
+    if (events.onExit)  socket.on('vehicle:exit',  events.onExit)
+    if (events.onCount) socket.on('inside:count',  events.onCount)
 
     return () => {
       socket.disconnect()
     }
   }, [parkingId])
+
+  return socketRef
 }

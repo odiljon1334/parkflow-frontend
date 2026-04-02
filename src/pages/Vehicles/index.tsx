@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { vehiclesApi, parkingsApi } from '../../api'
 import { useAuthStore } from '../../store/auth'
 import { useSocket } from '../../hooks/useSocket'
-import { Vehicle, Parking } from '../../types'
+import { VehicleSession, Parking, PricePreview } from '../../types'
 import CountryBadge from '../../components/ui/CountryBadge'
 import toast from 'react-hot-toast'
 import { Car, LogIn, LogOut, Search, RefreshCw } from 'lucide-react'
@@ -10,20 +10,20 @@ import { formatMoney, formatTime, formatDuration } from '../../utils'
 
 export default function VehiclesPage() {
   const { user } = useAuthStore()
-  const [parkings, setParkings] = useState<Parking[]>([])
+  const [parkings, setParkings]             = useState<Parking[]>([])
   const [selectedParking, setSelectedParking] = useState<string>('')
-  const [insideVehicles, setInsideVehicles] = useState<Vehicle[]>([])
-  const [entryPlate, setEntryPlate] = useState('')
-  const [exitPlate, setExitPlate] = useState('')
-  const [preview, setPreview] = useState<{ vehicle: Vehicle; durationMin: number; amount: number } | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [activeSessions, setActiveSessions] = useState<VehicleSession[]>([])
+  const [entryPlate, setEntryPlate]         = useState('')
+  const [exitPlate, setExitPlate]           = useState('')
+  const [preview, setPreview]               = useState<PricePreview | null>(null)
+  const [loading, setLoading]               = useState(false)
 
   // Operator uchun parking avtomatik belgilanadi
   const parkingId = user?.role === 'OPERATOR' ? (user.parkingId ?? '') : selectedParking
 
   useEffect(() => {
     if (user?.role !== 'OPERATOR') {
-      const regionId = user?.role === 'REGION_ADMIN' ? user.regionId ?? undefined : undefined
+      const regionId = user?.role === 'REGION_ADMIN' ? (user.regionId ?? undefined) : undefined
       parkingsApi.getAll(regionId).then((res) => {
         setParkings(res.data)
         if (res.data.length > 0) setSelectedParking(res.data[0].id)
@@ -32,20 +32,19 @@ export default function VehiclesPage() {
   }, [])
 
   useEffect(() => {
-    if (parkingId) loadInside()
+    if (parkingId) loadActive()
   }, [parkingId])
 
   // Real-time socket
   useSocket(parkingId || null, {
-    onEntry: (v) => setInsideVehicles((prev) => [v, ...prev]),
-    onExit: (v) => setInsideVehicles((prev) => prev.filter((x) => x.id !== v.id)),
-    onCount: () => {},
+    onEntry: (s) => setActiveSessions((prev) => [s, ...prev]),
+    onExit:  (s) => setActiveSessions((prev) => prev.filter((x) => x.id !== s.id)),
   })
 
-  const loadInside = async () => {
+  const loadActive = async () => {
     if (!parkingId) return
-    const res = await vehiclesApi.getInside(parkingId)
-    setInsideVehicles(res.data)
+    const res = await vehiclesApi.getActive(parkingId)
+    setActiveSessions(res.data)
   }
 
   const handleEntry = async (e: React.FormEvent) => {
@@ -54,10 +53,10 @@ export default function VehiclesPage() {
     setLoading(true)
     try {
       await vehiclesApi.entry({ plateNumber: entryPlate.trim(), parkingId, method: 'MANUAL' })
-      toast.success(`${entryPlate.toUpperCase()} kirdi`)
+      toast.success(`✅ ${entryPlate.toUpperCase()} kirdi`)
       setEntryPlate('')
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Xatolik')
+      toast.error(err.response?.data?.message || 'Xatolik yuz berdi')
     } finally {
       setLoading(false)
     }
@@ -69,7 +68,7 @@ export default function VehiclesPage() {
       const res = await vehiclesApi.previewPrice(parkingId, exitPlate.trim())
       setPreview(res.data)
     } catch {
-      toast.error('Mashina topilmadi')
+      toast.error('Mashina parkingda topilmadi')
       setPreview(null)
     }
   }
@@ -78,12 +77,17 @@ export default function VehiclesPage() {
     if (!preview || !parkingId) return
     setLoading(true)
     try {
-      await vehiclesApi.exit({ plateNumber: exitPlate.trim(), parkingId, method: 'MANUAL', paymentMethod: 'CASH' })
-      toast.success(`To'lov qabul qilindi: ${formatMoney(preview.amount)}`)
+      await vehiclesApi.exit({
+        plateNumber:   exitPlate.trim(),
+        parkingId,
+        method:        'MANUAL',
+        paymentMethod: 'CASH',
+      })
+      toast.success(`💰 To'lov qabul qilindi: ${formatMoney(preview.totalAmount)}`)
       setExitPlate('')
       setPreview(null)
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Xatolik')
+      toast.error(err.response?.data?.message || 'Xatolik yuz berdi')
     } finally {
       setLoading(false)
     }
@@ -91,10 +95,12 @@ export default function VehiclesPage() {
 
   return (
     <div className="p-6 space-y-6">
+
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Kirish / Chiqish</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Mashinalar harakati</p>
+          <p className="text-sm text-slate-500 mt-0.5">Mashinalar harakati boshqaruvi</p>
         </div>
 
         {user?.role !== 'OPERATOR' && parkings.length > 0 && (
@@ -112,7 +118,8 @@ export default function VehiclesPage() {
 
       {/* Kirish va Chiqish bloklari */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* KIRISH */}
+
+        {/* ─── KIRISH ──────────────────────────── */}
         <div className="card">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
@@ -130,15 +137,21 @@ export default function VehiclesPage() {
                 placeholder="01A123BC"
                 autoComplete="off"
               />
-              <p className="text-xs text-slate-400 mt-1">UZ, KG, KZ, RU, TM, TJ raqamlari qabul qilinadi</p>
+              <p className="text-xs text-slate-400 mt-1">
+                UZ, KG, KZ, RU, TM, TJ raqamlari qabul qilinadi
+              </p>
             </div>
-            <button type="submit" className="btn-primary w-full py-2.5" disabled={loading || !entryPlate.trim()}>
+            <button
+              type="submit"
+              className="btn-primary w-full py-2.5"
+              disabled={loading || !entryPlate.trim()}
+            >
               Kirishni qayd etish
             </button>
           </form>
         </div>
 
-        {/* CHIQISH */}
+        {/* ─── CHIQISH ─────────────────────────── */}
         <div className="card">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
@@ -157,7 +170,12 @@ export default function VehiclesPage() {
                   placeholder="01A123BC"
                   autoComplete="off"
                 />
-                <button onClick={handlePreview} className="btn-secondary px-3" title="Narxni tekshirish">
+                <button
+                  type="button"
+                  onClick={handlePreview}
+                  className="btn-secondary px-3"
+                  title="Narxni hisoblash"
+                >
                   <Search size={16} />
                 </button>
               </div>
@@ -168,28 +186,38 @@ export default function VehiclesPage() {
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-slate-600">Mashina:</span>
-                  <span className="font-mono font-bold">{preview.vehicle.plateNumber}</span>
+                  <span className="font-mono font-bold">{preview.session.plateNumber}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-slate-600">Kirish:</span>
-                  <span className="text-sm">{formatTime(preview.vehicle.entryTime)}</span>
+                  <span className="text-sm">{formatTime(preview.session.entryTime)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-slate-600">Vaqt:</span>
-                  <span className="text-sm">{formatDuration(preview.durationMin)}</span>
+                  <span className="text-sm font-medium">{preview.durationText}</span>
                 </div>
                 <div className="flex items-center justify-between border-t border-blue-200 pt-2">
                   <span className="font-semibold text-slate-800">To'lov:</span>
-                  <span className="text-xl font-bold text-blue-700">{formatMoney(preview.amount)}</span>
+                  <span className="text-xl font-bold text-blue-700">
+                    {formatMoney(preview.totalAmount)}
+                  </span>
                 </div>
-                <button onClick={handleExit} className="btn-primary w-full py-2.5" disabled={loading}>
-                  To'lov qabul qilindi (Naqd)
+                <button
+                  onClick={handleExit}
+                  className="btn-primary w-full py-2.5"
+                  disabled={loading}
+                >
+                  ✅ To'lov qabul qilindi (Naqd)
                 </button>
               </div>
             )}
 
             {!preview && (
-              <button onClick={handlePreview} className="btn-secondary w-full py-2.5" disabled={!exitPlate.trim()}>
+              <button
+                onClick={handlePreview}
+                className="btn-secondary w-full py-2.5"
+                disabled={!exitPlate.trim()}
+              >
                 Narxni hisoblash
               </button>
             )}
@@ -197,23 +225,23 @@ export default function VehiclesPage() {
         </div>
       </div>
 
-      {/* Hozir parkingda */}
+      {/* ─── Hozir parkingda ───────────────────── */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Car size={18} className="text-slate-600" />
             <h2 className="font-semibold text-slate-800">Hozir parkingda</h2>
             <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-              {insideVehicles.length} ta
+              {activeSessions.length} ta
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
             </span>
           </div>
-          <button onClick={loadInside} className="text-slate-400 hover:text-slate-600">
+          <button onClick={loadActive} className="text-slate-400 hover:text-slate-600 transition">
             <RefreshCw size={16} />
           </button>
         </div>
 
-        {insideVehicles.length === 0 ? (
+        {activeSessions.length === 0 ? (
           <p className="text-center text-slate-400 py-8">Parking bo'sh</p>
         ) : (
           <div className="overflow-x-auto">
@@ -227,13 +255,15 @@ export default function VehiclesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {insideVehicles.map((v) => {
-                  const mins = Math.floor((Date.now() - new Date(v.entryTime).getTime()) / 60000)
+                {activeSessions.map((s) => {
+                  const mins = Math.floor(
+                    (Date.now() - new Date(s.entryTime).getTime()) / 60000,
+                  )
                   return (
-                    <tr key={v.id} className="hover:bg-slate-50">
-                      <td className="py-3 font-mono font-bold text-slate-800">{v.plateNumber}</td>
-                      <td className="py-3"><CountryBadge country={v.country} /></td>
-                      <td className="py-3 text-slate-600">{formatTime(v.entryTime)}</td>
+                    <tr key={s.id} className="hover:bg-slate-50 transition">
+                      <td className="py-3 font-mono font-bold text-slate-800">{s.plateNumber}</td>
+                      <td className="py-3"><CountryBadge country={s.country} /></td>
+                      <td className="py-3 text-slate-600">{formatTime(s.entryTime)}</td>
                       <td className="py-3 text-slate-500">{formatDuration(mins)}</td>
                     </tr>
                   )
