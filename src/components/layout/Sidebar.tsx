@@ -12,7 +12,7 @@ const links = [
   { to: '/users',     icon: <Users size={18} />,           label: 'Foydalanuvchilar', roles: ['SUPER_ADMIN', 'REGION_ADMIN'] },
   { to: '/regions',   icon: <MapPin size={18} />,          label: 'Regionlar',  roles: ['SUPER_ADMIN'] },
   { to: '/parkings',  icon: <ParkingCircle size={18} />,   label: 'Parkinglar', roles: ['SUPER_ADMIN', 'REGION_ADMIN'] },
-  { to: '/settings',  icon: <Settings size={18} />,        label: 'Sozlamalar', roles: ['SUPER_ADMIN', 'REGION_ADMIN'] },
+  { to: '/settings',  icon: <Settings size={18} />,        label: 'Sozlamalar', roles: ['SUPER_ADMIN', 'REGION_ADMIN', 'OPERATOR'] },
 ]
 
 export default function Sidebar() {

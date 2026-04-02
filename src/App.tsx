@@ -9,6 +9,7 @@ import ReportsPage from './pages/Reports'
 import UsersPage from './pages/Users'
 import RegionsPage from './pages/Regions'
 import ParkingsPage from './pages/Parkings'
+import SettingsPage from './pages/Settings'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { token } = useAuthStore()
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="users"     element={<UsersPage />} />
           <Route path="regions"   element={<RegionsPage />} />
           <Route path="parkings"  element={<ParkingsPage />} />
+          <Route path="settings"  element={<SettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
