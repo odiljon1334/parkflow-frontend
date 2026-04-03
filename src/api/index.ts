@@ -8,6 +8,8 @@ export const authApi = {
 
   me: () => api.get('/auth/me'),
 
+  getUsers: () => api.get('/auth/users'),
+
   createUser: (data: {
     name: string
     username: string
@@ -107,9 +109,19 @@ export const vehiclesApi = {
     cameraId?: string
   }) => api.post('/vehicles/exit', data),
 
+  // Bugungi statistika
+  getStats: (parkingId: string) =>
+    api.get('/vehicles/stats', { params: { parkingId } }),
+
   // Manual yopish
   manualClose: (id: string, note?: string) =>
     api.patch(`/vehicles/${id}/close`, { note }),
+}
+
+// ─── Audit ───────────────────────────────────────────────────────────────────
+export const auditApi = {
+  getEvents: (parkingId?: string, limit?: number) =>
+    api.get('/audit', { params: { parkingId, limit } }),
 }
 
 // ─── Reports ─────────────────────────────────────────────────────────────────

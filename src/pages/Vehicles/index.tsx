@@ -3,7 +3,7 @@ import { vehiclesApi, parkingsApi } from '../../api'
 import { useAuthStore } from '../../store/auth'
 import { useSocket } from '../../hooks/useSocket'
 import { VehicleSession, Parking, PricePreview } from '../../types'
-import CountryBadge from '../../components/ui/CountryBadge'
+import PlateBadge from '../../components/ui/PlateBadge'
 import toast from 'react-hot-toast'
 import { Car, LogIn, LogOut, Search, RefreshCw } from 'lucide-react'
 import { formatMoney, formatTime, formatDuration } from '../../utils'
@@ -186,7 +186,7 @@ export default function VehiclesPage() {
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-slate-600">Mashina:</span>
-                  <span className="font-mono font-bold">{preview.session.plateNumber}</span>
+                  <PlateBadge plate={preview.session.plateNumber} country={preview.session.country} size="sm" />
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-slate-600">Kirish:</span>
@@ -261,8 +261,7 @@ export default function VehiclesPage() {
                   )
                   return (
                     <tr key={s.id} className="hover:bg-slate-50 transition">
-                      <td className="py-3 font-mono font-bold text-slate-800">{s.plateNumber}</td>
-                      <td className="py-3"><CountryBadge country={s.country} /></td>
+                      <td className="py-3"><PlateBadge plate={s.plateNumber} country={s.country} size="sm" /></td>
                       <td className="py-3 text-slate-600">{formatTime(s.entryTime)}</td>
                       <td className="py-3 text-slate-500">{formatDuration(mins)}</td>
                     </tr>

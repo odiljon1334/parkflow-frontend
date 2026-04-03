@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react'
 import { reportsApi, parkingsApi } from '../../api'
 import { useAuthStore } from '../../store/auth'
 import { Parking, ReportPeriod } from '../../types'
-import { formatMoney, downloadBlob } from '../../utils'
+import { formatMoney, formatTime, formatDuration, downloadBlob } from '../../utils'
+import PlateBadge from '../../components/ui/PlateBadge'
 import toast from 'react-hot-toast'
-import { Download, BarChart2, Car, TrendingUp } from 'lucide-react'
+import { Download, BarChart2, Car, TrendingUp, DollarSign } from 'lucide-react'
 
 const PERIODS: { value: ReportPeriod; label: string }[] = [
   { value: 'daily',   label: 'Bugun' },
@@ -14,11 +15,12 @@ const PERIODS: { value: ReportPeriod; label: string }[] = [
 
 export default function ReportsPage() {
   const { user } = useAuthStore()
-  const [parkings, setParkings] = useState<Parking[]>([])
+  const [parkings, setParkings]         = useState<Parking[]>([])
   const [selectedParking, setSelectedParking] = useState('')
-  const [period, setPeriod] = useState<ReportPeriod>('daily')
-  const [summary, setSummary] = useState<any>(null)
-  const [downloading, setDownloading] = useState(false)
+  const [period, setPeriod]             = useState<ReportPeriod>('daily')
+  const [summary, setSummary]           = useState<any>(null)
+  const [downloading, setDownloading]   = useState(false)
+  const [loading, setLoading]           = useState(false)
 
   const parkingId = user?.role === 'OPERATOR' ? (user.parkingId ?? '') : selectedParking
 
@@ -38,11 +40,14 @@ export default function ReportsPage() {
 
   const loadSummary = async () => {
     if (!parkingId) return
+    setLoading(true)
     try {
       const res = await reportsApi.getParkingSummary(parkingId, period)
       setSummary(res.data)
     } catch {
       toast.error('Hisobot yuklanmadi')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -51,7 +56,7 @@ export default function ReportsPage() {
     setDownloading(true)
     try {
       const res = await reportsApi.downloadExcel(parkingId, period)
-      downloadBlob(res.data, `parkflow-${period}-${Date.now()}.xlsx`)
+      downloadBlob(res.data, `parkflow-${period}-${new Date().toISOString().slice(0, 10)}.xlsx`)
       toast.success('Excel yuklab olindi')
     } catch {
       toast.error('Yuklab olishda xatolik')
@@ -60,8 +65,14 @@ export default function ReportsPage() {
     }
   }
 
+  const avgPayment = summary?.totalSessions > 0
+    ? Math.round(summary.totalIncome / summary.totalSessions)
+    : 0
+
   return (
     <div className="p-6 space-y-6">
+
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Hisobotlar</h1>
@@ -100,80 +111,103 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Summary kartalar */}
-      {summary && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="card flex items-center gap-4">
-            <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
-              <Car size={22} className="text-blue-600" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 uppercase font-medium tracking-wide">Jami mashinalar</p>
-              <p className="text-2xl font-bold text-slate-800">{summary.totalVehicles} ta</p>
-            </div>
-          </div>
-          <div className="card flex items-center gap-4">
-            <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
-              <TrendingUp size={22} className="text-green-600" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 uppercase font-medium tracking-wide">Jami kirim</p>
-              <p className="text-2xl font-bold text-slate-800">{formatMoney(summary.totalIncome)}</p>
-            </div>
-          </div>
-          <div className="card flex items-center gap-4">
-            <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center">
-              <BarChart2 size={22} className="text-orange-600" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 uppercase font-medium tracking-wide">O'rtacha to'lov</p>
-              <p className="text-2xl font-bold text-slate-800">
-                {summary.totalVehicles > 0
-                  ? formatMoney(Math.round(summary.totalIncome / summary.totalVehicles))
-                  : "0 so'm"}
-              </p>
-            </div>
-          </div>
-        </div>
+      {loading && (
+        <div className="text-center py-8 text-slate-400">Yuklanmoqda...</div>
       )}
 
-      {/* Jadval */}
-      {summary?.vehicles?.length > 0 && (
-        <div className="card">
-          <h2 className="font-semibold text-slate-800 mb-4">Harakatlar tarixi</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-slate-500 border-b border-slate-100">
-                  <th className="pb-2 font-medium">Raqam</th>
-                  <th className="pb-2 font-medium">Kirish</th>
-                  <th className="pb-2 font-medium">Chiqish</th>
-                  <th className="pb-2 font-medium">Vaqt</th>
-                  <th className="pb-2 font-medium text-right">To'lov</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {summary.vehicles.map((v: any) => (
-                  <tr key={v.id} className="hover:bg-slate-50">
-                    <td className="py-2.5 font-mono font-bold">{v.plateNumber}</td>
-                    <td className="py-2.5 text-slate-600">
-                      {new Date(v.entryTime).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
-                    </td>
-                    <td className="py-2.5 text-slate-600">
-                      {v.exitTime
-                        ? new Date(v.exitTime).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })
-                        : '—'}
-                    </td>
-                    <td className="py-2.5 text-slate-500">{v.durationMin ? `${v.durationMin} min` : '—'}</td>
-                    <td className="py-2.5 font-semibold text-green-700 text-right">
-                      {v.amount ? formatMoney(v.amount) : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Summary kartalar */}
+      {summary && !loading && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="card flex items-center gap-4">
+              <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
+                <Car size={22} className="text-blue-600" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 uppercase font-medium tracking-wide">Jami mashinalar</p>
+                <p className="text-2xl font-bold text-slate-800">{summary.totalSessions ?? 0} ta</p>
+              </div>
+            </div>
+
+            <div className="card flex items-center gap-4">
+              <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
+                <TrendingUp size={22} className="text-green-600" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 uppercase font-medium tracking-wide">Jami kirim</p>
+                <p className="text-2xl font-bold text-slate-800">{formatMoney(summary.totalIncome)}</p>
+              </div>
+            </div>
+
+            <div className="card flex items-center gap-4">
+              <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center">
+                <BarChart2 size={22} className="text-orange-600" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 uppercase font-medium tracking-wide">O'rtacha to'lov</p>
+                <p className="text-2xl font-bold text-slate-800">{formatMoney(avgPayment)}</p>
+              </div>
+            </div>
+
+            <div className="card flex items-center gap-4">
+              <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center">
+                <DollarSign size={22} className="text-purple-600" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 uppercase font-medium tracking-wide">
+                  {period === 'daily' ? 'Bugun' : period === 'weekly' ? 'Bu hafta' : 'Bu oy'}
+                </p>
+                <p className="text-sm font-medium text-slate-500 mt-0.5">
+                  {summary.from
+                    ? new Date(summary.from).toLocaleDateString('uz-UZ')
+                    : '—'}
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
+
+          {/* Jadval */}
+          {summary.sessions?.length > 0 ? (
+            <div className="card">
+              <h2 className="font-semibold text-slate-800 mb-4">Harakatlar tarixi ({summary.sessions.length} ta)</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-slate-500 border-b border-slate-100">
+                      <th className="pb-2 font-medium">Raqam</th>
+                      <th className="pb-2 font-medium">Kirish</th>
+                      <th className="pb-2 font-medium">Chiqish</th>
+                      <th className="pb-2 font-medium">Muddat</th>
+                      <th className="pb-2 font-medium text-right">To'lov</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {summary.sessions.map((s: any) => (
+                      <tr key={s.id} className="hover:bg-slate-50">
+                        <td className="py-2"><PlateBadge plate={s.plateNumber} country={s.country} size="sm" /></td>
+                        <td className="py-2.5 text-slate-600">{formatTime(s.entryTime)}</td>
+                        <td className="py-2.5 text-slate-600">
+                          {s.exitTime ? formatTime(s.exitTime) : '—'}
+                        </td>
+                        <td className="py-2.5 text-slate-500">
+                          {s.durationMinutes ? formatDuration(s.durationMinutes) : '—'}
+                        </td>
+                        <td className="py-2.5 text-right font-semibold text-green-700">
+                          {s.totalAmount ? formatMoney(s.totalAmount) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="card text-center py-12 text-slate-400">
+              <p className="text-3xl mb-2">📊</p>
+              <p>Bu davrda ma'lumot yo'q</p>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

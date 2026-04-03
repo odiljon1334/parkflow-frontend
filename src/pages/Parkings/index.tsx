@@ -50,7 +50,7 @@ export default function ParkingsPage() {
 
   const openPricing = async (p: Parking) => {
     setShowPricing(p)
-    const res = await pricingApi.getTiers(p.id)
+    const res = await pricingApi.getRules(p.id)
     if (res.data.length > 0) {
       setTierForm(res.data.map((t: { fromMinutes: number; toMinutes: number | null; price: number }) => ({
         fromMinutes: t.fromMinutes,
@@ -77,11 +77,13 @@ export default function ParkingsPage() {
   const handleSavePricing = async () => {
     if (!showPricing) return
     try {
-      await pricingApi.setTiers(showPricing.id, tierForm.map((t) => ({
-        fromMinutes: t.fromMinutes,
-        toMinutes: t.toMinutes >= 999999 ? undefined : t.toMinutes,
-        price: t.price,
-      })))
+      await pricingApi.setPlan(showPricing.id, {
+        tiers: tierForm.map((t) => ({
+          fromMinutes: t.fromMinutes,
+          toMinutes: t.toMinutes >= 999999 ? undefined : t.toMinutes,
+          price: t.price,
+        })),
+      })
       toast.success('Narx jadvali saqlandi')
       setShowPricing(null)
     } catch (err: any) {
@@ -115,7 +117,7 @@ export default function ParkingsPage() {
                 </div>
               </div>
               <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium">
-                {p._count?.vehicles ?? 0} ichkarida
+                {p.activeCount ?? 0} ichkarida
               </span>
             </div>
             {p.address && <p className="text-xs text-slate-400">{p.address}</p>}

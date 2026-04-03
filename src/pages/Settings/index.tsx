@@ -73,10 +73,10 @@ export default function SettingsPage() {
         <div className="card space-y-5">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold">
-              {user?.name?.[0]?.toUpperCase()}
+              {user?.fullName?.[0]?.toUpperCase()}
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-slate-800">{user?.name}</h2>
+              <h2 className="text-lg font-semibold text-slate-800">{user?.fullName}</h2>
               <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${ROLE_COLORS[user?.role ?? '']}`}>
                 {ROLE_LABELS[user?.role ?? '']}
               </span>

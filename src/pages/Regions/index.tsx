@@ -19,10 +19,10 @@ export default function RegionsPage() {
     e.preventDefault()
     try {
       if (editing) {
-        await regionsApi.update(editing.id, name)
+        await regionsApi.update(editing.id, { name })
         toast.success('Yangilandi')
       } else {
-        await regionsApi.create(name)
+        await regionsApi.create({ name })
         toast.success('Region yaratildi')
       }
       setShowModal(false)

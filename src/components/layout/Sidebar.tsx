@@ -2,17 +2,18 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/auth'
 import {
   LayoutDashboard, Car, BarChart2, Users,
-  MapPin, ParkingCircle, Settings, LogOut,
+  MapPin, ParkingCircle, Settings, LogOut, History,
 } from 'lucide-react'
 
 const links = [
-  { to: '/dashboard', icon: <LayoutDashboard size={18} />, label: 'Dashboard',  roles: ['SUPER_ADMIN', 'REGION_ADMIN', 'OPERATOR'] },
-  { to: '/vehicles',  icon: <Car size={18} />,             label: 'Kirish/Chiqish', roles: ['SUPER_ADMIN', 'REGION_ADMIN', 'OPERATOR'] },
-  { to: '/reports',   icon: <BarChart2 size={18} />,       label: 'Hisobotlar', roles: ['SUPER_ADMIN', 'REGION_ADMIN', 'OPERATOR'] },
+  { to: '/dashboard', icon: <LayoutDashboard size={18} />, label: 'Dashboard',        roles: ['SUPER_ADMIN', 'REGION_ADMIN', 'OPERATOR'] },
+  { to: '/vehicles',  icon: <Car size={18} />,             label: 'Kirish/Chiqish',   roles: ['SUPER_ADMIN', 'REGION_ADMIN', 'OPERATOR'] },
+  { to: '/reports',   icon: <BarChart2 size={18} />,       label: 'Hisobotlar',       roles: ['SUPER_ADMIN', 'REGION_ADMIN', 'OPERATOR'] },
+  { to: '/audit',     icon: <History size={18} />,         label: 'Audit Log',        roles: ['SUPER_ADMIN', 'REGION_ADMIN'] },
   { to: '/users',     icon: <Users size={18} />,           label: 'Foydalanuvchilar', roles: ['SUPER_ADMIN', 'REGION_ADMIN'] },
-  { to: '/regions',   icon: <MapPin size={18} />,          label: 'Regionlar',  roles: ['SUPER_ADMIN'] },
-  { to: '/parkings',  icon: <ParkingCircle size={18} />,   label: 'Parkinglar', roles: ['SUPER_ADMIN', 'REGION_ADMIN'] },
-  { to: '/settings',  icon: <Settings size={18} />,        label: 'Sozlamalar', roles: ['SUPER_ADMIN', 'REGION_ADMIN', 'OPERATOR'] },
+  { to: '/regions',   icon: <MapPin size={18} />,          label: 'Regionlar',        roles: ['SUPER_ADMIN'] },
+  { to: '/parkings',  icon: <ParkingCircle size={18} />,   label: 'Parkinglar',       roles: ['SUPER_ADMIN', 'REGION_ADMIN'] },
+  { to: '/settings',  icon: <Settings size={18} />,        label: 'Sozlamalar',       roles: ['SUPER_ADMIN', 'REGION_ADMIN', 'OPERATOR'] },
 ]
 
 export default function Sidebar() {
@@ -62,10 +63,10 @@ export default function Sidebar() {
       <div className="p-3 border-t border-slate-100">
         <div className="flex items-center gap-3 px-3 py-2 mb-1">
           <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
-            {user?.name?.[0]?.toUpperCase()}
+            {user?.fullName?.[0]?.toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-800 truncate">{user?.name}</p>
+            <p className="text-sm font-medium text-slate-800 truncate">{user?.fullName}</p>
             <p className="text-xs text-slate-500 truncate">
               {user?.role === 'SUPER_ADMIN' ? 'Super Admin' : user?.role === 'REGION_ADMIN' ? 'Region Admin' : 'Operator'}
             </p>
